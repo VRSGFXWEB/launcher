@@ -1,0 +1,43 @@
+name: Extract and Build
+on: [push, workflow_dispatch]
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract zip
+        run: |
+          mkdir out src
+          unzip -q iLaunch.zip -d out
+          D=$(dirname "$(find out -name settings.gradle.kts | head -n1)")
+          cp -r "$D"/. src/
+          rm -rf src/.github
+          ls -la src
+      - uses: actions/upload-artifact@v4
+        with:
+          name: src
+          path: src
+
+  build:
+    needs: extract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: src
+          path: src
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.9
+      - name: Build APK
+        working-directory: src
+        run: gradle assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iLaunch-apk
+          path: src/app/build/outputs/apk/debug/app-debug.apk
